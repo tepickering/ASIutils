@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -g -IASI_SDK/include
-LDFLAGS = -lm -lcfitsio -lxpa -LASI_SDK/lib/mac -lASICamera2
+CFLAGS = -g -IASI_SDK/include -I/usr/local/include
+LDFLAGS = -lm -lcfitsio -lxpa -largp -LASI_SDK/lib/mac -lASICamera2
 EXECS = test_cap
 
 all:	${EXECS}
