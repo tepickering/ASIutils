@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
-#include <inttypes.h>
 #include <string.h>
 #include <argp.h>
 #include <stdbool.h>
@@ -17,16 +17,16 @@
 const char *argp_program_version = "test_cap 0.0.1dev";
 const char *argp_program_bug_address = "<te.pickering@gmail.com>";
 static char doc[] = "Test ZWO ASI camera by taking single frame and saving it to a FITS image.";
-static char args_doc[] = "[FITSFILE]...";
+static char args_doc[] = "";
 static struct argp_option options[] = {
-    {"output", 'o', 0, 0, "Output FITS file (default: test.fits)."},
-    {"exptime", 'e', 0, 0, "Exposure time in seconds (default: 1.0)."},
-    {"gain", 'g', 0, 0, "Detector gain (default: 0)."},
-    {"binning", 'b', 0, 0, "Detector binning (default: 1)."},
-    {"width", 'w', 0, 0, "ROI width (default: detector max)."},
-    {"height", 'h', 0, 0, "ROI height (default: detector max)."},
-    {"x_start", 'x', 0, 0, "X-axis start position (default: centered ROI)."},
-    {"y_start", 'y', 0, 0, "Y-axis start position (default: centered ROT)."},
+    {"output", 'o', "FITSFILE", 0, "Output FITS file (default: test.fits)."},
+    {"exptime", 'e', "EXPTIME", 0, "Exposure time in seconds (default: 1.0)."},
+    {"gain", 'g', "GAIN", 0, "Detector gain (default: 0)."},
+    {"binning", 'b', "BINNING", 0, "Detector binning (default: 1)."},
+    {"width", 'w', "WIDTH", 0, "ROI width (default: detector max)."},
+    {"height", 'h', "HEIGHT", 0, "ROI height (default: detector max)."},
+    {"x_start", 'x', "X", 0, "X-axis start position (default: centered ROI)."},
+    {"y_start", 'y', "Y", 0, "Y-axis start position (default: centered ROT)."},
     { 0 }
 };
 
@@ -77,9 +77,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     return 0;
 };
 
-static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
+static struct argp argp = { options, parse_opt, args_doc, doc };
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
     fitsfile *fptr;
     long fpixel=1, naxes[2];
     int width, height;
