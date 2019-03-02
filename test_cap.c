@@ -22,6 +22,7 @@ static struct argp_option options[] = {
     {"output", 'o', "FITSFILE", 0, "Output FITS file (default: test.fits)."},
     {"exptime", 'e', "EXPTIME", 0, "Exposure time in seconds (default: 1.0)."},
     {"gain", 'g', "GAIN", 0, "Detector gain (default: 0)."},
+    {"offset", 'l', "OFFSET", 0, "Detector bias offset (default: 0)"},
     {"binning", 'b', "BINNING", 0, "Detector binning (default: 1)."},
     {"width", 'w', "WIDTH", 0, "ROI width (default: detector max)."},
     {"height", 'h', "HEIGHT", 0, "ROI height (default: detector max)."},
@@ -34,6 +35,7 @@ struct arguments {
     char *output;
     float exptime;
     int gain;
+    int offset;
     int binning;
     int width;
     int height;
@@ -52,6 +54,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'g':
             arguments->gain = atoi(arg);
+            break;
+        case 'l':
+            arguments->offset = atoi(arg);
             break;
         case 'b':
             arguments->binning = atoi(arg);
@@ -100,6 +105,7 @@ int main(int argc, char **argv) {
     arguments.output = "!test.fits";
     arguments.exptime = 1.0;
     arguments.gain = 0;
+    arguments.offset = 0;
     arguments.binning = 1;
     arguments.width = 0;
     arguments.height = 0;
@@ -154,8 +160,13 @@ int main(int argc, char **argv) {
     int nctrl = 0;
     ASIGetNumOfControls(cam, &nctrl);
     for (i=0; i < nctrl; i++) {
-    ASIGetControlCaps(cam, i, &ControlCaps);
-    printf("%s\n", ControlCaps.Name);
+        ASIGetControlCaps(cam, i, &ControlCaps);
+        printf("%s: %ld -- %ld (default: %ld)\n",
+            ControlCaps.Name,
+            ControlCaps.MinValue,
+            ControlCaps.MaxValue,
+            ControlCaps.DefaultValue
+        );
     }
 
     long camtemp = 0;
@@ -189,6 +200,7 @@ int main(int argc, char **argv) {
     fits_create_img(fptr, BYTE_IMG, 2, naxes, &fitstatus);
 
     ASISetControlValue(cam, ASI_GAIN, gain, ASI_FALSE);
+    ASISetControlValue(cam, ASI_BRIGHTNESS, arguments.offset, ASI_FALSE);
 
     int exp_us = (int)exptime * 1.0e6;
     ASISetControlValue(cam, ASI_EXPOSURE, exp_us, ASI_FALSE);
