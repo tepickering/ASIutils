@@ -14,9 +14,9 @@
 
 #include <ASICamera2.h>
 
-const char *argp_program_version = "test_cap 0.0.1dev";
+const char *argp_program_version = "grab_cube 0.0.1dev";
 const char *argp_program_bug_address = "<te.pickering@gmail.com>";
-static char doc[] = "Test ZWO ASI camera by taking single frame and saving it to a FITS image.";
+static char doc[] = "Stream from ZWO ASI camera and save frames into a FITS image cube.";
 static char args_doc[] = "";
 static struct argp_option options[] = {
     {"output", 'o', "FITSFILE", 0, "Output FITS file (default: test.fits)."},
@@ -28,6 +28,7 @@ static struct argp_option options[] = {
     {"height", 'h', "HEIGHT", 0, "ROI height (default: detector max)."},
     {"x_start", 'x', "X", 0, "X-axis start position (default: centered ROI)."},
     {"y_start", 'y', "Y", 0, "Y-axis start position (default: centered ROT)."},
+    {"nexp", 'n', "NEXP", 0, "Number of exposures (default: 3)."},
     { 0 }
 };
 
@@ -41,6 +42,7 @@ struct arguments {
     int height;
     int x_start;
     int y_start;
+    int nexp;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -73,6 +75,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         case 'y':
             arguments->y_start = atoi(arg);
             break;
+        case 'n':
+            arguments->nexp = atoi(arg);
+            break;
         case ARGP_KEY_ARG:
             argp_usage(state);
             break;
@@ -86,7 +91,7 @@ static struct argp argp = { options, parse_opt, args_doc, doc };
 
 int main(int argc, char **argv) {
     fitsfile *fptr;
-    long fpixel=1, naxes[2];
+    long fpixel=1, naxes[3];
     int width, height;
     unsigned int min_bytes, max_bytes, max_width, max_height;
     uint64_t total_bytes = 0;
@@ -96,7 +101,7 @@ int main(int argc, char **argv) {
     float exptime, elapsed_time, fps;
     char *filename;
     int i, gain, exp_ms, fitstatus;
-    int cam = 0, bin = 1, imtype = ASI_IMG_RAW8;
+    int cam = 0, bin = 1, nexp = 3, imtype = ASI_IMG_RAW8;
 
     unsigned char *imbuf;
 
@@ -111,6 +116,7 @@ int main(int argc, char **argv) {
     arguments.height = 0;
     arguments.x_start = 0;
     arguments.y_start = 0;
+    arguments.nexp = 3;
 
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
@@ -124,7 +130,13 @@ int main(int argc, char **argv) {
         printf("Allowed binning values in range of 1-4. Defaulting to 1x1...\n");
     }
 
-    printf("%f second exposure at gain=%d being saved to %s.\n", exptime, gain, filename);
+    if (arguments.nexp < 2) {
+        printf("Must request 2 or more frames. Defaulting to nexp=3...\n");
+    } else {
+        nexp = arguments.nexp;
+    }
+
+    printf("%f second exposures at gain=%d being saved to %s.\n", exptime, gain, filename);
 
     int nCamera = ASIGetNumOfConnectedCameras();
 
@@ -189,6 +201,7 @@ int main(int argc, char **argv) {
     ASIGetROIFormat(cam, &width, &height, &bin, (ASI_IMG_TYPE*)&imtype);
     naxes[0] = width;
     naxes[1] = height;
+    naxes[2] = nexp;
 
     long imsize = width * height;
     if (!(imbuf = malloc(imsize * sizeof(char)))) {
@@ -197,29 +210,28 @@ int main(int argc, char **argv) {
     }
 
     fits_create_file(&fptr, filename, &fitstatus);
-    fits_create_img(fptr, BYTE_IMG, 2, naxes, &fitstatus);
+    fits_create_img(fptr, BYTE_IMG, 3, naxes, &fitstatus);
 
     ASISetControlValue(cam, ASI_GAIN, gain, ASI_FALSE);
     ASISetControlValue(cam, ASI_BRIGHTNESS, arguments.offset, ASI_FALSE);
 
     int exp_us = (int)exptime * 1.0e6;
+    exp_ms = exp_us / 1000;
     ASISetControlValue(cam, ASI_EXPOSURE, exp_us, ASI_FALSE);
     ASISetControlValue(cam, ASI_BANDWIDTHOVERLOAD, 40, ASI_FALSE);
+    ASISetControlValue(cam, ASI_HIGH_SPEED_MODE, 0, ASI_FALSE);
 
-    ASI_EXPOSURE_STATUS status;
-    ASIStartExposure(cam, ASI_FALSE);
+    ASIStartVideoCapture(cam);
     usleep(10000);
-    status = ASI_EXP_WORKING;
-
-    while(status == ASI_EXP_WORKING) {
-    ASIGetExpStatus(cam, &status);
+    int timeout = 100 ? 200 : (exp_ms * 2);  // timeout in ms
+    ASIGetVideoData(cam, imbuf, imsize, timeout);
+    for (i=0; i<nexp; i++) {
+        usleep(exp_us);
+        ASIGetVideoData(cam, imbuf, imsize, timeout);
+        fits_write_img(fptr, TBYTE, fpixel+i*naxes[0]* naxes[1], naxes[0]* naxes[1], imbuf, &fitstatus);
     }
-    if (status == ASI_EXP_SUCCESS) {
-    ASIGetDataAfterExp(cam, imbuf, imsize);
-    fits_write_img(fptr, TBYTE, fpixel, imsize, imbuf, &fitstatus);
-    }
+    ASIStopVideoCapture(cam);
     fits_close_file(fptr, &fitstatus);
-    ASIStopExposure(cam);
     ASICloseCamera(cam);
     return 1;
 }
