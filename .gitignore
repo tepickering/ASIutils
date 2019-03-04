@@ -29,6 +29,7 @@
 *.x86_64
 *.hex
 test_cap
+grab_cube
 
 # images
 *.fits
