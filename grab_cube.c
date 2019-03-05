@@ -219,7 +219,7 @@ int main(int argc, char **argv) {
     exp_ms = exp_us / 1000;
     ASISetControlValue(cam, ASI_EXPOSURE, exp_us, ASI_FALSE);
     ASISetControlValue(cam, ASI_BANDWIDTHOVERLOAD, 40, ASI_FALSE);
-    ASISetControlValue(cam, ASI_HIGH_SPEED_MODE, 0, ASI_FALSE);
+    ASISetControlValue(cam, ASI_HIGH_SPEED_MODE, ASI_TRUE, ASI_FALSE);
 
     ASIStartVideoCapture(cam);
     usleep(10000);
